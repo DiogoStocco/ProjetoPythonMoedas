@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload de Dados</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <h1>Upload de Arquivo CSV</h1>
+    <form action="/upload" method="POST" enctype="multipart/form-data">
+        <label for="csvFile">Selecione um arquivo CSV:</label>
+        <input type="file" id="csvFile" name="csvFile" accept=".csv" required>
+        <button type="submit">Enviar</button>
+    </form>
+    <a href="/">Voltar à página inicial</a>
+</body>
+</html>

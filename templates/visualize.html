@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualização de Dados</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <h1>Visualização de Dados</h1>
+
+    <table border="1">
+        <thead>
+            <tr>
+                {% for column in data.columns %}
+                <th>{{ column }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in data.values %}
+            <tr>
+                {% for cell in row %}
+                <td>{{ cell }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h2>Criar Gráfico</h2>
+    <form method="POST">
+        <label for="column_x">Eixo X:</label>
+        <select name="column_x" id="column_x" required>
+            {% for column in data.columns %}
+            <option value="{{ column }}">{{ column }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="column_y">Eixo Y:</label>
+        <select name="column_y" id="column_y" required>
+            {% for column in data.columns %}
+            <option value="{{ column }}">{{ column }}</option>
+            {% endfor %}
+        </select>
+
+        <button type="submit">Criar Gráfico</button>
+    </form>
+
+    {% if graph %}
+    <div>
+        {{ graph|safe }}
+    </div>
+    {% endif %}
+
+    <a href="/">Voltar à página inicial</a>
+</body>
+</html>

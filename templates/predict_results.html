@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resultados</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    {% if selected_column %}
+        <h1>Análise da Coluna {{ selected_column }}</h1>
+        {% if analysis_results.error %}
+            <p>{{ analysis_results.error }}</p>
+        {% else %}
+            <p><strong>Média:</strong> {{ analysis_results.mean }}</p>
+            <p><strong>Desvio Padrão:</strong> {{ analysis_results.std_dev }}</p>
+            <p><strong>Valor Mínimo:</strong> {{ analysis_results.min_value }}</p>
+            <p><strong>Valor Máximo:</strong> {{ analysis_results.max_value }}</p>
+
+            <h2>Histograma</h2>
+            {% if analysis_results.graph %}
+            <div>
+                {{ analysis_results.graph|safe }}
+            </div>
+            {% endif %}
+        {% endif %}
+    {% endif %}
+
+    {% if prediction_result %}
+        <h1>Previsão de Preço</h1>
+        {% if prediction_result.error %}
+            <p>{{ prediction_result.error }}</p>
+        {% else %}
+            <p><strong>Data Selecionada:</strong> {{ prediction_result.date }}</p>
+            <p><strong>Preço Previsto:</strong> {{ prediction_result.prediction }}</p>
+        {% endif %}
+    {% endif %}
+
+    <a href="/predict">Voltar</a><br>
+    <a href="/">Página Inicial</a>
+</body>
+</html>

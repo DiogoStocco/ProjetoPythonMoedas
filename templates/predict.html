@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análises e Previsão</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <h1>Análises e Previsão</h1>
+
+    <form method="POST">
+        <h2>Selecione uma coluna para análise:</h2>
+        <label for="selected_column">Coluna:</label>
+        <select name="selected_column" id="selected_column">
+            <option value="">--Selecione uma coluna--</option>
+            {% for column in columns %}
+            <option value="{{ column }}">{{ column }}</option>
+            {% endfor %}
+        </select>
+
+        <h2>Selecione uma data para previsão de preço:</h2>
+        <label for="selected_date">Data:</label>
+        <input type="date" id="selected_date" name="selected_date">
+
+        <p>**Você pode selecionar ambos os campos para obter as análises e a previsão simultaneamente.**</p>
+
+        <button type="submit">Continuar</button>
+    </form>
+
+    <a href="/">Voltar à página inicial</a>
+</body>
+</html>
