@@ -1,33 +1,35 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Análises e Previsão</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <title>Previsão</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
-    <h1>Análises e Previsão</h1>
-
-    <form method="POST">
-        <h2>Selecione uma coluna para análise:</h2>
-        <label for="selected_column">Coluna:</label>
-        <select name="selected_column" id="selected_column">
-            <option value="">--Selecione uma coluna--</option>
+    <h1>Previsão</h1>
+    <form method="POST" action="/predict">
+        <label for="target_column">Selecione a coluna que deseja prever:</label>
+        <select id="target_column" name="target_column" required>
             {% for column in columns %}
             <option value="{{ column }}">{{ column }}</option>
             {% endfor %}
         </select>
-
-        <h2>Selecione uma data para previsão de preço:</h2>
-        <label for="selected_date">Data:</label>
-        <input type="date" id="selected_date" name="selected_date">
-
-        <p>**Você pode selecionar ambos os campos para obter as análises e a previsão simultaneamente.**</p>
-
-        <button type="submit">Continuar</button>
+        <br><br>
+        <button type="submit">Prever</button>
     </form>
 
-    <a href="/">Voltar à página inicial</a>
+    {% if predictions %}
+    <h2>Resultados da Previsão</h2>
+    <ul>
+        {% for year, prediction in predictions.items() %}
+        <li><strong>{{ year }}:</strong> {{ prediction }} USD</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if error %}
+    <p style="color:red;">{{ error }}</p>
+    {% endif %}
 </body>
 </html>
