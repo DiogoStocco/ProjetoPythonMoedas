@@ -2,7 +2,6 @@ from flask import Flask, request, render_template, jsonify, redirect, url_for
 import pandas as pd
 import os
 import joblib
-import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 import plotly.express as px
 
@@ -14,15 +13,19 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(MODEL_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+# Constantes
+MODEL_PATH = os.path.join(MODEL_FOLDER, 'model.pkl')
+YEARS_TO_PREDICT = [5, 10, 15, 50]
+
 # Variáveis globais
 latest_csv_file = None
 model = None
 
-
-def train_model(file_path):
-    global model
-
-    # Leitura dos dados
+def clean_and_validate_data(file_path):
+    """
+    Limpa e valida os dados do arquivo CSV.
+    Retorna um DataFrame limpo e verifica se há ao menos duas colunas numéricas.
+    """
     data = pd.read_csv(file_path)
 
     # Remoção de linhas completamente nulas
@@ -37,10 +40,42 @@ def train_model(file_path):
 
     # Verificar se há ao menos duas colunas numéricas
     if data.shape[1] < 2:
-        raise ValueError("O arquivo precisa ter pelo menos duas colunas numéricas após limpeza")
+        raise ValueError("O arquivo precisa ter pelo menos duas colunas numéricas após limpeza.")
 
-    # Preenchendo valores nulos com a média e convertendo para inteiro
-    data = data.fillna(data.mean()).astype(int)
+    # Preenchendo valores nulos com a média das colunas
+    data = data.fillna(data.mean(numeric_only=True))
+
+    # Verificar se ainda existem NaNs
+    if data.isna().any().any():
+        raise ValueError("Não foi possível limpar completamente os dados. Verifique o arquivo de entrada.")
+
+    # # Remoção de linhas completamente nulas
+    # data = data.dropna(how='all')
+
+    # # Tentar converter todas as colunas para numérico (ignorar erros)
+    # for col in data.columns:
+    #     data[col] = pd.to_numeric(data[col], errors='coerce')
+
+    # # Remover colunas que ficaram completamente nulas
+    # data = data.dropna(axis=1, how='all')
+
+    # # Verificar se há ao menos duas colunas numéricas
+    # if data.shape[1] < 2:
+    #     raise ValueError("O arquivo precisa ter pelo menos duas colunas numéricas após limpeza")
+
+    # # Preenchendo valores nulos com a média e convertendo para inteiro
+    # data = data.fillna(data.mean()).astype(int)
+
+    # Verificar se há ao menos duas colunas numéricas
+    # if data.select_dtypes(include=['number']).shape[1] < 2:
+    #     raise ValueError("O arquivo precisa ter pelo menos duas colunas numéricas após limpeza")
+
+    return data
+
+def train_model(file_path):
+    global model
+
+    data = clean_and_validate_data(file_path)
 
     # Separação de features e target
     features = data.iloc[:, :-1]
@@ -51,10 +86,8 @@ def train_model(file_path):
     model.fit(features, target)
 
     # Salvando o modelo treinado
-    model_path = os.path.join(MODEL_FOLDER, 'model.pkl')
-    joblib.dump(model, model_path)
-
-    print("Modelo treinado com sucesso! Dados convertidos para inteiros.")
+    joblib.dump(model, MODEL_PATH)
+    print(f"Modelo treinado e salvo em '{MODEL_PATH}'.")
 
 def load_model():
     global model
@@ -133,66 +166,69 @@ def visualize():
         column_x = request.form.get('column_x')
         column_y = request.form.get('column_y')
         if column_x and column_y:
-            fig = px.scatter(data, x=column_x, y=column_y, title=f'Relação entre {column_x} e {column_y}')
+            fig = px.line(data, x=column_x, y=column_y, title=f'Relação entre {column_x} e {column_y}')
             graph_html = fig.to_html(full_html=False)
             return render_template('visualize.html', data=data.head(), graph=graph_html)
 
     return render_template('visualize.html', data=data.head(), graph=None)
 
-
-# Rota para predições
 @app.route('/predict', methods=['GET', 'POST'])
 def predict():
     global model, latest_csv_file
 
     if model is None:
-        return jsonify({"error": "Modelo ainda não treinado"}), 400
+        return render_template('predict.html', columns=[], predictions=None, error="Modelo ainda não treinado")
 
     if not latest_csv_file:
-        return jsonify({"error": "Nenhum arquivo CSV disponível"}), 400
+        return render_template('predict.html', columns=[], predictions=None, error="Nenhum arquivo CSV disponível")
 
     file_path = os.path.join(app.config['UPLOAD_FOLDER'], latest_csv_file)
-    data = pd.read_csv(file_path)
-
-    # Converter tudo para numérico e preencher valores nulos
-    for col in data.columns:
-        data[col] = pd.to_numeric(data[col], errors='coerce')
-    data = data.dropna(axis=1, how='all').fillna(data.mean())
+    try:
+        data = clean_and_validate_data(file_path)
+    except ValueError as e:
+        return render_template('predict.html', columns=[], predictions=None, error=str(e))
 
     if request.method == 'POST':
-        target_column = request.form.get('target_column')  # Coluna a ser prevista
+        target_column = request.form.get('target_column')
 
         if not target_column or target_column not in data.columns:
-            return jsonify({"error": "Coluna-alvo inválida"}), 400
+            return render_template(
+                'predict.html',
+                columns=data.columns.tolist(),
+                predictions=None,
+                error="Coluna-alvo inválida"
+            )
 
-        # Separar features e alvo
         features = data.drop(columns=[target_column])
-        if features.empty:
-            return jsonify({"error": "Não há colunas suficientes para usar como features"}), 400
-
-        # Calcular previsões para 5, 10, 15 e 50 anos
         predictions = {}
-        years_to_predict = [5, 10, 15, 50]
+
         try:
-            for year in years_to_predict:
-                # Criar um conjunto de features fictícias ajustando os valores atuais com base nos anos
+            for year in YEARS_TO_PREDICT:
                 input_features = features.mean(axis=0) * year
                 prediction = model.predict([input_features])[0]
+                predictions[f"{year} anos"] = f"{int(round(prediction)):,}"  # Format as a readable number
 
-                # Formatando o valor como um inteiro (dólares)
-                predictions[f"{year} anos"] = f"${int(round(prediction))}"
-
-            return jsonify({
-                "message": f"Previsão realizada com sucesso para a coluna '{target_column}'",
-                "predictions": predictions
-            })
+            return render_template(
+                'predict.html',
+                columns=data.columns.tolist(),
+                predictions=predictions,
+                error=None
+            )
         except Exception as e:
-            return jsonify({"error": f"Erro ao realizar a previsão: {str(e)}"}), 500
+            return render_template(
+                'predict.html',
+                columns=data.columns.tolist(),
+                predictions=None,
+                error=f"Erro ao realizar a previsão: {str(e)}"
+            )
 
-    # Preparar a lista de colunas disponíveis para seleção no formulário
-    columns = data.columns.tolist()
-    return render_template('predict.html', columns=columns)
-
+    # Render the initial page with column selection
+    return render_template(
+        'predict.html',
+        columns=data.columns.tolist(),
+        predictions=None,
+        error=None
+    )
 
 if __name__ == '__main__':
     app.run(debug=True)
