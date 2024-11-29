@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Gráficos de Análise</h2>
+
+<!-- Formulário de seleção de gráficos -->
+<form action="/analyze/{{ filename }}" method="POST">
+    <label for="graph_type">Tipo de Gráfico:</label>
+    <select name="graph_type" id="graph_type" required>
+        <option value="scatter">Scatter Plot</option>
+        <option value="line">Gráfico de Linha</option>
+        <option value="histogram">Histograma</option>
+    </select>
+
+    <label for="x_column">Eixo X:</label>
+    <select name="x_column" id="x_column" required>
+        {% for column in columns %}
+        <option value="{{ column }}">{{ column }}</option>
+        {% endfor %}
+    </select>
+
+    <label for="y_column">Eixo Y (opcional para histograma):</label>
+    <select name="y_column" id="y_column">
+        <option value="">Nenhum</option>
+        {% for column in columns %}
+        <option value="{{ column }}">{{ column }}</option>
+        {% endfor %}
+    </select>
+
+    <button type="submit">Gerar Gráfico</button>
+</form>
+
+<!-- Gráfico Renderizado -->
+<div>
+    {{ graph_html|safe }}
+</div>
+
+<a href="/">Voltar ao início</a>
+{% endblock %}

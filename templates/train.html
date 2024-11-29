@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Treinamento de Modelos</h2>
+
+{% if error_message %}
+<p style="color: red;">{{ error_message }}</p>
+{% endif %}
+
+<form action="/train/{{ filename }}" method="POST">
+    <label for="x_columns">Selecione as colunas para X:</label>
+    <select name="x_columns" id="x_columns" class="select w-full max-w-xs" required>
+        {% for column in columns %}
+        <option value="{{ column }}">{{ column }}</option>
+        {% endfor %}
+    </select>
+
+    <label for="y_column">Selecione a coluna para y:</label>
+    <select name="y_column" id="y_column" class="select w-full max-w-xs" required>
+        {% for column in columns %}
+        <option value="{{ column }}">{{ column }}</option>
+        {% endfor %}
+    </select>
+
+    <label for="model_type">Modelo:</label>
+    <select name="model_type" id="model_type" class="select w-full max-w-xs" required>
+        <option value="linear">Regressão Linear</option>
+        <option value="knn">KNN</option>
+    </select>
+
+    <label for="param_k">Parâmetro K (somente para KNN):</label>
+    <input type="number" name="param_k" id="param_k" value="3">
+
+    <button type="submit">Treinar Modelo</button>
+</form>
+
+{% if mse %}
+<h3>Resultados</h3>
+<p>Modelo: {{ model_type }}</p>
+<p>MSE: {{ mse }}</p>
+<p>Variáveis: {{ x_columns }} → {{ y_column }}</p>
+<p>Modelo salvo como: <strong>{{ model_filename }}</strong></p>
+{% endif %}
+
+<a href="/">Voltar ao início</a>
+{% endblock %}
