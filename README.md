@@ -36,8 +36,8 @@ Este projeto é uma aplicação web interativa que permite ao usuário fazer upl
 
 1. **Clone o repositório**
    ```bash
-   git clone https://github.com/seu-usuario/seu-repositorio.git
-   cd seu-repositorio
+   git clone https://github.com/DiogoStocco/ProjetoPythonMoedas.git
+   cd ProjetoPythonMoedas
    ```
 
 2. **Instale as dependências**
