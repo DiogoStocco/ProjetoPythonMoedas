@@ -1,25 +1,20 @@
-from flask import Flask, request, render_template, jsonify, redirect, url_for
-import pandas as pd
-import os
 import joblib
-from sklearn.linear_model import LinearRegression
+import pandas as pd
 import plotly.express as px
+import numpy as np
+import os
+from datetime import datetime
+from flask import Flask, render_template, request, redirect, url_for
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.metrics import mean_squared_error
 
-# Configurações iniciais
 app = Flask(__name__)
-UPLOAD_FOLDER = 'uploads/'
-MODEL_FOLDER = 'models/'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(MODEL_FOLDER, exist_ok=True)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['UPLOAD_FOLDER'] = 'uploads'
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Constantes
-MODEL_PATH = os.path.join(MODEL_FOLDER, 'model.pkl')
-YEARS_TO_PREDICT = [5, 10, 15, 50]
-
-# Variáveis globais
-latest_csv_file = None
-model = None
+import pandas as pd
 
 def clean_and_validate_data(file_path):
     """
@@ -32,8 +27,8 @@ def clean_and_validate_data(file_path):
     data = data.dropna(how='all')
 
     # Tentar converter todas as colunas para numérico (ignorar erros)
-    for col in data.columns:
-        data[col] = pd.to_numeric(data[col], errors='coerce')
+    # for col in data.columns:
+    #     data[col] = pd.to_numeric(data[col], errors='coerce')
 
     # Remover colunas que ficaram completamente nulas
     data = data.dropna(axis=1, how='all')
@@ -49,186 +44,138 @@ def clean_and_validate_data(file_path):
     if data.isna().any().any():
         raise ValueError("Não foi possível limpar completamente os dados. Verifique o arquivo de entrada.")
 
-    # # Remoção de linhas completamente nulas
-    # data = data.dropna(how='all')
-
-    # # Tentar converter todas as colunas para numérico (ignorar erros)
-    # for col in data.columns:
-    #     data[col] = pd.to_numeric(data[col], errors='coerce')
-
-    # # Remover colunas que ficaram completamente nulas
-    # data = data.dropna(axis=1, how='all')
-
-    # # Verificar se há ao menos duas colunas numéricas
-    # if data.shape[1] < 2:
-    #     raise ValueError("O arquivo precisa ter pelo menos duas colunas numéricas após limpeza")
-
-    # # Preenchendo valores nulos com a média e convertendo para inteiro
-    # data = data.fillna(data.mean()).astype(int)
-
-    # Verificar se há ao menos duas colunas numéricas
-    # if data.select_dtypes(include=['number']).shape[1] < 2:
-    #     raise ValueError("O arquivo precisa ter pelo menos duas colunas numéricas após limpeza")
-
     return data
 
-def train_model(file_path):
-    global model
+# Página inicial: upload de arquivo
+@app.route("/", methods=["GET", "POST"])
+def upload_file():
+    if request.method == "POST":
+        file = request.files.get("file")
+        if file and file.filename.endswith(".csv"):
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+            file.save(file_path)
+            return redirect(url_for("analyze_file", filename=file.filename))
+        else:
+            return "Por favor, envie um arquivo CSV válido.", 400
+    return render_template("upload.html")
 
-    data = clean_and_validate_data(file_path)
-
-    # Separação de features e target
-    features = data.iloc[:, :-1]
-    target = data.iloc[:, -1]
-
-    # Treinamento do modelo
-    model = LinearRegression()
-    model.fit(features, target)
-
-    # Salvando o modelo treinado
-    joblib.dump(model, MODEL_PATH)
-    print(f"Modelo treinado e salvo em '{MODEL_PATH}'.")
-
-def load_model():
-    global model
-    model_path = os.path.join(MODEL_FOLDER, 'model.pkl')
-    print(f"Tentando carregar o modelo do caminho: {model_path}")
-
-    if os.path.exists(model_path):
-        model = joblib.load(model_path)
-        print("Modelo carregado com sucesso.")
-    else:
-        print("Modelo não encontrado. Criando um modelo padrão.")
-
-        # Criar um modelo padrão (LinearRegression vazio)
-        model = LinearRegression()
-
-        # Salvar o modelo no arquivo model.pkl
-        try:
-            joblib.dump(model, model_path)
-            print(f"Modelo padrão criado e salvo em '{model_path}'.")
-        except Exception as e:
-            print(f"Erro ao salvar o modelo padrão: {e}")
-
-
-# Página inicial
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-
-# Rota para upload do CSV
-@app.route('/upload', methods=['GET', 'POST'])
-def upload():
-    global latest_csv_file
-
-    if request.method == 'POST':
-        if 'csvFile' not in request.files:
-            return jsonify({"error": "Nenhum arquivo enviado"}), 400
-
-        file = request.files['csvFile']
-        if file.filename == '':
-            return jsonify({"error": "Nenhum arquivo selecionado"}), 400
-
-        if not file.filename.endswith('.csv'):
-            return jsonify({"error": "Por favor, envie um arquivo CSV válido"}), 400
-
-        # Salvar o arquivo
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-        file.save(file_path)
-        latest_csv_file = file.filename
-
-        # Treinamento automático após o upload
-        try:
-            train_model(file_path)
-        except ValueError as e:
-            return jsonify({"error": str(e)}), 400
-        except Exception as e:
-            return jsonify({"error": f"Erro ao treinar o modelo: {str(e)}"}), 500
-
-        return redirect(url_for('visualize'))
-
-    return render_template('upload.html')
-
-
-# Rota para visualização e análise de dados
-@app.route('/visualize', methods=['GET', 'POST'])
-def visualize():
-    global latest_csv_file
-
-    if not latest_csv_file:
-        return jsonify({"error": "Nenhum arquivo CSV disponível"}), 400
-
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], latest_csv_file)
-    data = pd.read_csv(file_path)
-
-    if request.method == 'POST':
-        column_x = request.form.get('column_x')
-        column_y = request.form.get('column_y')
-        if column_x and column_y:
-            fig = px.line(data, x=column_x, y=column_y, title=f'Relação entre {column_x} e {column_y}')
-            graph_html = fig.to_html(full_html=False)
-            return render_template('visualize.html', data=data.head(), graph=graph_html)
-
-    return render_template('visualize.html', data=data.head(), graph=None)
-
-@app.route('/predict', methods=['GET', 'POST'])
-def predict():
-    global model, latest_csv_file
-
-    if model is None:
-        return render_template('predict.html', columns=[], predictions=None, error="Modelo ainda não treinado")
-
-    if not latest_csv_file:
-        return render_template('predict.html', columns=[], predictions=None, error="Nenhum arquivo CSV disponível")
-
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], latest_csv_file)
+# Página de análise
+@app.route("/analyze/<filename>", methods=["GET", "POST"])
+def analyze_file(filename):
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     try:
-        data = clean_and_validate_data(file_path)
-    except ValueError as e:
-        return render_template('predict.html', columns=[], predictions=None, error=str(e))
+        df = pd.read_csv(file_path)
+        columns = df.columns.tolist()
 
-    if request.method == 'POST':
-        target_column = request.form.get('target_column')
+        if request.method == "POST":
+            graph_type = request.form.get("graph_type")
+            x_column = request.form.get("x_column")
+            y_column = request.form.get("y_column")
 
-        if not target_column or target_column not in data.columns:
-            return render_template(
-                'predict.html',
-                columns=data.columns.tolist(),
-                predictions=None,
-                error="Coluna-alvo inválida"
-            )
+            # Gerar gráfico com base na seleção do usuário
+            if graph_type == "scatter" and x_column and y_column:
+                fig = px.scatter(df, x=x_column, y=y_column, title="Scatter Plot")
+            elif graph_type == "line" and x_column and y_column:
+                fig = px.line(df, x=x_column, y=y_column, title="Gráfico de Linha")
+            elif graph_type == "histogram" and x_column:
+                fig = px.histogram(df, x=x_column, title="Histograma")
+            else:
+                return "Selecione os parâmetros corretos para o gráfico.", 400
 
-        features = data.drop(columns=[target_column])
-        predictions = {}
+            graph_html = fig.to_html(full_html=False)
+        else:
+            # Gráfico inicial padrão
+            fig = px.histogram(df, x=columns[1], title="Histograma Inicial")
+            graph_html = fig.to_html(full_html=False)
 
-        try:
-            for year in YEARS_TO_PREDICT:
-                input_features = features.mean(axis=0) * year
-                prediction = model.predict([input_features])[0]
-                predictions[f"{year} anos"] = f"{int(round(prediction)):,}"  # Format as a readable number
+        return render_template(
+            "analyze.html", graph_html=graph_html, columns=columns, filename=filename
+        )
+    except Exception as e:
+        return f"Erro ao processar o arquivo: {e}", 500
 
-            return render_template(
-                'predict.html',
-                columns=data.columns.tolist(),
-                predictions=predictions,
-                error=None
-            )
-        except Exception as e:
-            return render_template(
-                'predict.html',
-                columns=data.columns.tolist(),
-                predictions=None,
-                error=f"Erro ao realizar a previsão: {str(e)}"
-            )
+# Rota para treinamento do modelo
+@app.route("/train/<filename>", methods=["GET", "POST"])
+def train_model(filename):
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    try:
+        df = clean_and_validate_data(file_path)
+        columns = df.columns.tolist()
+        error_message = None
 
-    # Render the initial page with column selection
-    return render_template(
-        'predict.html',
-        columns=data.columns.tolist(),
-        predictions=None,
-        error=None
-    )
+        if request.method == "POST":
+            # Obter configurações do formulário
+            x_columns = request.form.getlist("x_columns")
+            y_column = request.form.get("y_column")
+            model_type = request.form.get("model_type")
+            param_k = int(request.form.get("param_k", 3))
 
-if __name__ == '__main__':
+            if not x_columns or not y_column:
+                error_message = "Selecione ao menos uma coluna para X e uma para y."
+            else:
+                # Separar dados
+                X = df[x_columns]
+                y = df[y_column]
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+                # Treinamento do modelo
+                if model_type == "linear":
+                    model = LinearRegression()
+                elif model_type == "knn":
+                    model = KNeighborsRegressor(n_neighbors=param_k)
+                else:
+                    return "Modelo desconhecido.", 400
+
+                model.fit(X_train, y_train)
+                y_pred = model.predict(X_test)
+                mse = mean_squared_error(y_test, y_pred)
+
+                # Salvar modelo
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                model_filename = f"{model_type}_model_{timestamp}.joblib"
+                model_path = os.path.join("models", model_filename)
+                os.makedirs("models", exist_ok=True)
+                joblib.dump(model, model_path)
+
+                return render_template(
+                    "train.html",
+                    columns=columns,
+                    filename=filename,
+                    mse=mse,
+                    model_type=model_type,
+                    x_columns=x_columns,
+                    y_column=y_column,
+                    model_filename=model_filename,
+                )
+
+        return render_template("train.html", columns=columns, filename=filename, error_message=error_message)
+    except Exception as e:
+        return f"Erro ao processar o arquivo: {e}", 500
+    
+@app.route("/predict", methods=["POST"])
+def predict():
+    try:
+        request_data = request.get_json()
+        model_filename = request_data.get("model_filename")
+        input_data = request_data.get("input_data")
+
+        if not model_filename or not input_data:
+            return {"error": "Forneça o nome do modelo e os dados de entrada."}, 400
+
+        # Carregar modelo salvo
+        model_path = os.path.join("models", model_filename)
+        if not os.path.exists(model_path):
+            return {"error": "Modelo não encontrado."}, 404
+
+        model = joblib.load(model_path)
+
+        # Fazer predição
+        input_df = pd.DataFrame([input_data])
+        predictions = model.predict(input_df)
+        return {"predictions": predictions.tolist()}
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+if __name__ == "__main__":
     app.run(debug=True)
