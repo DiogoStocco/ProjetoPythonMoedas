@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "tw:build": "npx tailwindcss --output static/styles.css",
+    "tw:watch": "npx tailwindcss --output static/styles.css --watch"
   },
   "keywords": [],
   "author": "",

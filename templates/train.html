@@ -8,21 +8,21 @@
 
 <form action="/train/{{ filename }}" method="POST">
     <label for="x_columns">Selecione as colunas para X:</label>
-    <select name="x_columns" id="x_columns" class="select w-full max-w-xs" required>
+    <select name="x_columns" id="x_columns" multiple required>
         {% for column in columns %}
         <option value="{{ column }}">{{ column }}</option>
         {% endfor %}
     </select>
 
     <label for="y_column">Selecione a coluna para y:</label>
-    <select name="y_column" id="y_column" class="select w-full max-w-xs" required>
+    <select name="y_column" id="y_column" required>
         {% for column in columns %}
         <option value="{{ column }}">{{ column }}</option>
         {% endfor %}
     </select>
 
     <label for="model_type">Modelo:</label>
-    <select name="model_type" id="model_type" class="select w-full max-w-xs" required>
+    <select name="model_type" id="model_type" required>
         <option value="linear">Regressão Linear</option>
         <option value="knn">KNN</option>
     </select>
